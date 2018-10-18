@@ -17,7 +17,7 @@
 #
 # - route_registrar: Used for registering routes
 #
-# Also: metron_agent, statsd_injector, go-buildpack, binary-buildpack,
+# Also: loggregator_agent, statsd_injector, go-buildpack, binary-buildpack,
 # nodejs-buildpack, ruby-buildpack, php-buildpack, python-buildpack,
 # staticfile-buildpack, java-buildpack, dotnet-core-buildpack
 
@@ -92,25 +92,16 @@ spec:
           value: {{if ne (typeOf .Values.env.ALLOWED_CORS_DOMAINS) "<nil>"}}{{if has (kindOf .Values.env.ALLOWED_CORS_DOMAINS) (list "map" "slice")}}{{.Values.env.ALLOWED_CORS_DOMAINS | toJson | quote}}{{else}}{{.Values.env.ALLOWED_CORS_DOMAINS | quote}}{{end}}{{else}}{{fail "env.ALLOWED_CORS_DOMAINS has not been set"}}{{end}}
         - name: "ALLOW_APP_SSH_ACCESS"
           value: {{if ne (typeOf .Values.env.ALLOW_APP_SSH_ACCESS) "<nil>"}}{{if has (kindOf .Values.env.ALLOW_APP_SSH_ACCESS) (list "map" "slice")}}{{.Values.env.ALLOW_APP_SSH_ACCESS | toJson | quote}}{{else}}{{.Values.env.ALLOW_APP_SSH_ACCESS | quote}}{{end}}{{else}}{{fail "env.ALLOW_APP_SSH_ACCESS has not been set"}}{{end}}
-
-        {{- if not .Values.secrets.APP_SSH_KEY_FINGERPRINT }}
-        - name: "APP_SSH_KEY_FINGERPRINT"
-          valueFrom:
-            secretKeyRef:
-              key: "app-ssh-key-fingerprint"
-              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
-        {{- end }}
-
-        {{- if .Values.secrets.APP_SSH_KEY_FINGERPRINT }}
-        - name: "APP_SSH_KEY_FINGERPRINT"
-          valueFrom:
-            secretKeyRef:
-              key: "app-ssh-key-fingerprint"
-              name: "secrets"
-        {{- end }}
-
         - name: "APP_TOKEN_UPLOAD_GRACE_PERIOD"
           value: {{if ne (typeOf .Values.env.APP_TOKEN_UPLOAD_GRACE_PERIOD) "<nil>"}}{{if has (kindOf .Values.env.APP_TOKEN_UPLOAD_GRACE_PERIOD) (list "map" "slice")}}{{.Values.env.APP_TOKEN_UPLOAD_GRACE_PERIOD | toJson | quote}}{{else}}{{.Values.env.APP_TOKEN_UPLOAD_GRACE_PERIOD | quote}}{{end}}{{else}}{{fail "env.APP_TOKEN_UPLOAD_GRACE_PERIOD has not been set"}}{{end}}
+
+        {{- if not .Values.secrets.BLOBSTORE_PASSWORD }}
+        - name: "BLOBSTORE_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              key: "blobstore-password"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
 
         {{- if .Values.secrets.BLOBSTORE_PASSWORD }}
         - name: "BLOBSTORE_PASSWORD"
@@ -120,13 +111,8 @@ spec:
               name: "secrets"
         {{- end }}
 
-        {{- if not .Values.secrets.BLOBSTORE_PASSWORD }}
-        - name: "BLOBSTORE_PASSWORD"
-          valueFrom:
-            secretKeyRef:
-              key: "blobstore-password"
-              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
-        {{- end }}
+        - name: "BROKER_CLIENT_TIMEOUT_SECONDS"
+          value: {{if ne (typeOf .Values.env.BROKER_CLIENT_TIMEOUT_SECONDS) "<nil>"}}{{if has (kindOf .Values.env.BROKER_CLIENT_TIMEOUT_SECONDS) (list "map" "slice")}}{{.Values.env.BROKER_CLIENT_TIMEOUT_SECONDS | toJson | quote}}{{else}}{{.Values.env.BROKER_CLIENT_TIMEOUT_SECONDS | quote}}{{end}}{{else}}""{{end}}
 
         {{- if not .Values.secrets.BULK_API_PASSWORD }}
         - name: "BULK_API_PASSWORD"
@@ -170,19 +156,19 @@ spec:
               name: "secrets"
         {{- end }}
 
-        {{- if not .Values.secrets.CC_SERVER_KEY }}
-        - name: "CC_SERVER_KEY"
+        {{- if not .Values.secrets.CC_SERVER_CRT_KEY }}
+        - name: "CC_SERVER_CRT_KEY"
           valueFrom:
             secretKeyRef:
-              key: "cc-server-key"
+              key: "cc-server-crt-key"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
-        {{- if .Values.secrets.CC_SERVER_KEY }}
-        - name: "CC_SERVER_KEY"
+        {{- if .Values.secrets.CC_SERVER_CRT_KEY }}
+        - name: "CC_SERVER_CRT_KEY"
           valueFrom:
             secretKeyRef:
-              key: "cc-server-key"
+              key: "cc-server-crt-key"
               name: "secrets"
         {{- end }}
 
@@ -215,14 +201,8 @@ spec:
           value: {{if ne (typeOf .Values.env.DOMAIN) "<nil>"}}{{if has (kindOf .Values.env.DOMAIN) (list "map" "slice")}}{{.Values.env.DOMAIN | toJson | quote}}{{else}}{{.Values.env.DOMAIN | quote}}{{end}}{{else}}{{fail "env.DOMAIN has not been set"}}{{end}}
         - name: "DROPLET_MAX_STAGED_STORED"
           value: {{if ne (typeOf .Values.env.DROPLET_MAX_STAGED_STORED) "<nil>"}}{{if has (kindOf .Values.env.DROPLET_MAX_STAGED_STORED) (list "map" "slice")}}{{.Values.env.DROPLET_MAX_STAGED_STORED | toJson | quote}}{{else}}{{.Values.env.DROPLET_MAX_STAGED_STORED | quote}}{{end}}{{else}}{{fail "env.DROPLET_MAX_STAGED_STORED has not been set"}}{{end}}
-        - name: "ENABLE_OPI_STAGING"
-          value: {{if ne (typeOf .Values.env.ENABLE_OPI_STAGING) "<nil>"}}{{if has (kindOf .Values.env.ENABLE_OPI_STAGING) (list "map" "slice")}}{{.Values.env.ENABLE_OPI_STAGING | toJson | quote}}{{else}}{{.Values.env.ENABLE_OPI_STAGING | quote}}{{end}}{{else}}""{{end}}
         - name: "ENABLE_SECURITY_EVENT_LOGGING"
           value: {{if ne (typeOf .Values.env.ENABLE_SECURITY_EVENT_LOGGING) "<nil>"}}{{if has (kindOf .Values.env.ENABLE_SECURITY_EVENT_LOGGING) (list "map" "slice")}}{{.Values.env.ENABLE_SECURITY_EVENT_LOGGING | toJson | quote}}{{else}}{{.Values.env.ENABLE_SECURITY_EVENT_LOGGING | quote}}{{end}}{{else}}""{{end}}
-        - name: "GARDEN_ROOTFS_DRIVER"
-          value: {{if ne (typeOf .Values.env.GARDEN_ROOTFS_DRIVER) "<nil>"}}{{if has (kindOf .Values.env.GARDEN_ROOTFS_DRIVER) (list "map" "slice")}}{{.Values.env.GARDEN_ROOTFS_DRIVER | toJson | quote}}{{else}}{{.Values.env.GARDEN_ROOTFS_DRIVER | quote}}{{end}}{{else}}{{fail "env.GARDEN_ROOTFS_DRIVER has not been set"}}{{end}}
-        - name: "INSECURE_DOCKER_REGISTRIES"
-          value: {{if ne (typeOf .Values.env.INSECURE_DOCKER_REGISTRIES) "<nil>"}}{{if has (kindOf .Values.env.INSECURE_DOCKER_REGISTRIES) (list "map" "slice")}}{{.Values.env.INSECURE_DOCKER_REGISTRIES | toJson | quote}}{{else}}{{.Values.env.INSECURE_DOCKER_REGISTRIES | quote}}{{end}}{{else}}""{{end}}
 
         {{- if not .Values.secrets.INTERNAL_API_PASSWORD }}
         - name: "INTERNAL_API_PASSWORD"
@@ -266,44 +246,45 @@ spec:
           value: "z1"
         - name: "KUBE_SIZING_NATS_COUNT"
           value: {{ .Values.sizing.nats.count | quote }}
+
+        {{- if .Values.secrets.LOGGREGATOR_AGENT_CERT }}
+        - name: "LOGGREGATOR_AGENT_CERT"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-agent-cert"
+              name: "secrets"
+        {{- end }}
+
+        {{- if not .Values.secrets.LOGGREGATOR_AGENT_CERT }}
+        - name: "LOGGREGATOR_AGENT_CERT"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-agent-cert"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        {{- if .Values.secrets.LOGGREGATOR_AGENT_CERT_KEY }}
+        - name: "LOGGREGATOR_AGENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-agent-cert-key"
+              name: "secrets"
+        {{- end }}
+
+        {{- if not .Values.secrets.LOGGREGATOR_AGENT_CERT_KEY }}
+        - name: "LOGGREGATOR_AGENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-agent-cert-key"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
         - name: "LOG_LEVEL"
           value: {{if ne (typeOf .Values.env.LOG_LEVEL) "<nil>"}}{{if has (kindOf .Values.env.LOG_LEVEL) (list "map" "slice")}}{{.Values.env.LOG_LEVEL | toJson | quote}}{{else}}{{.Values.env.LOG_LEVEL | quote}}{{end}}{{else}}{{fail "env.LOG_LEVEL has not been set"}}{{end}}
         - name: "MAX_APP_DISK_IN_MB"
           value: {{if ne (typeOf .Values.env.MAX_APP_DISK_IN_MB) "<nil>"}}{{if has (kindOf .Values.env.MAX_APP_DISK_IN_MB) (list "map" "slice")}}{{.Values.env.MAX_APP_DISK_IN_MB | toJson | quote}}{{else}}{{.Values.env.MAX_APP_DISK_IN_MB | quote}}{{end}}{{else}}{{fail "env.MAX_APP_DISK_IN_MB has not been set"}}{{end}}
         - name: "MAX_HEALTH_CHECK_TIMEOUT"
           value: {{if ne (typeOf .Values.env.MAX_HEALTH_CHECK_TIMEOUT) "<nil>"}}{{if has (kindOf .Values.env.MAX_HEALTH_CHECK_TIMEOUT) (list "map" "slice")}}{{.Values.env.MAX_HEALTH_CHECK_TIMEOUT | toJson | quote}}{{else}}{{.Values.env.MAX_HEALTH_CHECK_TIMEOUT | quote}}{{end}}{{else}}{{fail "env.MAX_HEALTH_CHECK_TIMEOUT has not been set"}}{{end}}
-
-        {{- if not .Values.secrets.METRON_CERT }}
-        - name: "METRON_CERT"
-          valueFrom:
-            secretKeyRef:
-              key: "metron-cert"
-              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
-        {{- end }}
-
-        {{- if .Values.secrets.METRON_CERT }}
-        - name: "METRON_CERT"
-          valueFrom:
-            secretKeyRef:
-              key: "metron-cert"
-              name: "secrets"
-        {{- end }}
-
-        {{- if .Values.secrets.METRON_KEY }}
-        - name: "METRON_KEY"
-          valueFrom:
-            secretKeyRef:
-              key: "metron-key"
-              name: "secrets"
-        {{- end }}
-
-        {{- if not .Values.secrets.METRON_KEY }}
-        - name: "METRON_KEY"
-          valueFrom:
-            secretKeyRef:
-              key: "metron-key"
-              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
-        {{- end }}
 
         {{- if not .Values.secrets.MONIT_PASSWORD }}
         - name: "MONIT_PASSWORD"
@@ -356,20 +337,20 @@ spec:
         - name: "NGINX_MAX_REQUEST_BODY_SIZE"
           value: {{if ne (typeOf .Values.env.NGINX_MAX_REQUEST_BODY_SIZE) "<nil>"}}{{if has (kindOf .Values.env.NGINX_MAX_REQUEST_BODY_SIZE) (list "map" "slice")}}{{.Values.env.NGINX_MAX_REQUEST_BODY_SIZE | toJson | quote}}{{else}}{{.Values.env.NGINX_MAX_REQUEST_BODY_SIZE | quote}}{{end}}{{else}}{{fail "env.NGINX_MAX_REQUEST_BODY_SIZE has not been set"}}{{end}}
 
-        {{- if .Values.secrets.ROUTER_SERVICES_SECRET }}
-        - name: "ROUTER_SERVICES_SECRET"
-          valueFrom:
-            secretKeyRef:
-              key: "router-services-secret"
-              name: "secrets"
-        {{- end }}
-
         {{- if not .Values.secrets.ROUTER_SERVICES_SECRET }}
         - name: "ROUTER_SERVICES_SECRET"
           valueFrom:
             secretKeyRef:
               key: "router-services-secret"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        {{- if .Values.secrets.ROUTER_SERVICES_SECRET }}
+        - name: "ROUTER_SERVICES_SECRET"
+          valueFrom:
+            secretKeyRef:
+              key: "router-services-secret"
+              name: "secrets"
         {{- end }}
 
         - name: "SCF_LOG_HOST"
@@ -425,14 +406,6 @@ spec:
               name: "secrets"
         {{- end }}
 
-        {{- if not .Values.secrets.UAA_CLIENTS_CC_SERVICE_DASHBOARDS_CLIENT_SECRET }}
-        - name: "UAA_CLIENTS_CC_SERVICE_DASHBOARDS_CLIENT_SECRET"
-          valueFrom:
-            secretKeyRef:
-              key: "uaa-clients-cc-service-dashboards-client-secret"
-              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
-        {{- end }}
-
         {{- if .Values.secrets.UAA_CLIENTS_CC_SERVICE_DASHBOARDS_CLIENT_SECRET }}
         - name: "UAA_CLIENTS_CC_SERVICE_DASHBOARDS_CLIENT_SECRET"
           valueFrom:
@@ -441,11 +414,11 @@ spec:
               name: "secrets"
         {{- end }}
 
-        {{- if not .Values.secrets.UAA_CLIENTS_CC_SERVICE_KEY_CLIENT_SECRET }}
-        - name: "UAA_CLIENTS_CC_SERVICE_KEY_CLIENT_SECRET"
+        {{- if not .Values.secrets.UAA_CLIENTS_CC_SERVICE_DASHBOARDS_CLIENT_SECRET }}
+        - name: "UAA_CLIENTS_CC_SERVICE_DASHBOARDS_CLIENT_SECRET"
           valueFrom:
             secretKeyRef:
-              key: "uaa-clients-cc-service-key-client-secret"
+              key: "uaa-clients-cc-service-dashboards-client-secret"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
@@ -457,12 +430,12 @@ spec:
               name: "secrets"
         {{- end }}
 
-        {{- if .Values.secrets.UAA_CLIENTS_CLOUD_CONTROLLER_USERNAME_LOOKUP_SECRET }}
-        - name: "UAA_CLIENTS_CLOUD_CONTROLLER_USERNAME_LOOKUP_SECRET"
+        {{- if not .Values.secrets.UAA_CLIENTS_CC_SERVICE_KEY_CLIENT_SECRET }}
+        - name: "UAA_CLIENTS_CC_SERVICE_KEY_CLIENT_SECRET"
           valueFrom:
             secretKeyRef:
-              key: "uaa-clients-cloud-controller-username-lookup-secret"
-              name: "secrets"
+              key: "uaa-clients-cc-service-key-client-secret"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
         {{- if not .Values.secrets.UAA_CLIENTS_CLOUD_CONTROLLER_USERNAME_LOOKUP_SECRET }}
@@ -473,15 +446,19 @@ spec:
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
+        {{- if .Values.secrets.UAA_CLIENTS_CLOUD_CONTROLLER_USERNAME_LOOKUP_SECRET }}
+        - name: "UAA_CLIENTS_CLOUD_CONTROLLER_USERNAME_LOOKUP_SECRET"
+          valueFrom:
+            secretKeyRef:
+              key: "uaa-clients-cloud-controller-username-lookup-secret"
+              name: "secrets"
+        {{- end }}
+
         - name: "UAA_HOST"
           value: {{if ne (typeOf .Values.env.UAA_HOST) "<nil>"}}{{if has (kindOf .Values.env.UAA_HOST) (list "map" "slice")}}{{.Values.env.UAA_HOST | toJson | quote}}{{else}}{{.Values.env.UAA_HOST | quote}}{{end}}{{else}}{{fail "env.UAA_HOST has not been set"}}{{end}}
         - name: "UAA_PORT"
           value: {{if ne (typeOf .Values.env.UAA_PORT) "<nil>"}}{{if has (kindOf .Values.env.UAA_PORT) (list "map" "slice")}}{{.Values.env.UAA_PORT | toJson | quote}}{{else}}{{.Values.env.UAA_PORT | quote}}{{end}}{{else}}""{{end}}
-        - name: "USE_DIEGO_PRIVILEGED_CONTAINERS"
-          value: {{if ne (typeOf .Values.env.USE_DIEGO_PRIVILEGED_CONTAINERS) "<nil>"}}{{if has (kindOf .Values.env.USE_DIEGO_PRIVILEGED_CONTAINERS) (list "map" "slice")}}{{.Values.env.USE_DIEGO_PRIVILEGED_CONTAINERS | toJson | quote}}{{else}}{{.Values.env.USE_DIEGO_PRIVILEGED_CONTAINERS | quote}}{{end}}{{else}}{{fail "env.USE_DIEGO_PRIVILEGED_CONTAINERS has not been set"}}{{end}}
-        - name: "USE_STAGER_PRIVILEGED_CONTAINERS"
-          value: {{if ne (typeOf .Values.env.USE_STAGER_PRIVILEGED_CONTAINERS) "<nil>"}}{{if has (kindOf .Values.env.USE_STAGER_PRIVILEGED_CONTAINERS) (list "map" "slice")}}{{.Values.env.USE_STAGER_PRIVILEGED_CONTAINERS | toJson | quote}}{{else}}{{.Values.env.USE_STAGER_PRIVILEGED_CONTAINERS | quote}}{{end}}{{else}}{{fail "env.USE_STAGER_PRIVILEGED_CONTAINERS has not been set"}}{{end}}
-        image: "{{ .Values.kube.registry.hostname }}/{{ .Values.kube.organization }}/scf-api:13e64296141e5684d49a3fff5615e285c4747b7c"
+        image: "{{ .Values.kube.registry.hostname }}/{{ .Values.kube.organization }}/scf-api:65fc66ba5a97c6ef7a1600c0097eee8a2d66e20e"
         lifecycle:
           preStop:
             exec:
@@ -503,7 +480,7 @@ spec:
           exec:
             command:
             - "/opt/fissile/readiness-probe.sh"
-            - "curl --silent --fail http://${HOSTNAME}:9022/v2/info"
+            - "curl --silent --fail --head http://${HOSTNAME}:9022/v2/info"
         resources:
           requests:
             {{- if and .Values.config.memory.requests .Values.sizing.api.memory.request }}
@@ -574,21 +551,42 @@ items:
 - apiVersion: "v1"
   kind: "Service"
   metadata:
-    name: "api"
+    name: "api-cloud-controller-ng-set"
+  spec:
+    clusterIP: "None"
+    ports:
+    - name: "api"
+      port: 9022
+      protocol: "TCP"
+      targetPort: 0
+    - name: "api-tls"
+      port: 9023
+      protocol: "TCP"
+      targetPort: 0
+    - name: "statsd"
+      port: 8125
+      protocol: "TCP"
+      targetPort: 0
+    selector:
+      skiff-role-name: "api"
+- apiVersion: "v1"
+  kind: "Service"
+  metadata:
+    name: "api-cloud-controller-ng"
   spec:
     ports:
     - name: "api"
       port: 9022
       protocol: "TCP"
-      targetPort: "api"
+      targetPort: 9022
     - name: "api-tls"
       port: 9023
       protocol: "TCP"
-      targetPort: "api-tls"
+      targetPort: 9023
     - name: "statsd"
       port: 8125
       protocol: "TCP"
-      targetPort: "statsd"
+      targetPort: 8125
     selector:
       skiff-role-name: "api"
 kind: "List"

@@ -1,23 +1,26 @@
 ---
-# The nfs-broker instance group contains the following jobs:
+# The locket instance group contains the following jobs:
 #
 # - global-properties: Dummy BOSH job used to host global parameters that are
 #   required to configure SCF
 #
 # - authorize-internal-ca: Install both internal and UAA CA certificates
 #
-# Also: metron_agent, nfsbroker
+# - patch-properties: Dummy BOSH job used to host parameters that are used in
+#   SCF patches for upstream bugs
+#
+# Also: loggregator_agent, locket
 
-{{- if gt (int .Values.sizing.nfs_broker.count) 3 }}
-_maxReplicas: {{ fail "nfs_broker cannot have more than 3 instances" }}
+{{- if gt (int .Values.sizing.locket.count) 3 }}
+_maxReplicas: {{ fail "locket cannot have more than 3 instances" }}
 {{- end }}
 
-{{- if and .Values.config.HA (and (ne (int .Values.sizing.nfs_broker.count) 1) (lt (int .Values.sizing.nfs_broker.count) 2)) }}
-_minHAReplicas: {{ fail "nfs_broker must have at least 2 instances for HA" }}
+{{- if and .Values.config.HA (and (ne (int .Values.sizing.locket.count) 1) (lt (int .Values.sizing.locket.count) 2)) }}
+_minHAReplicas: {{ fail "locket must have at least 2 instances for HA" }}
 {{- end }}
 
-{{- if lt (int .Values.sizing.nfs_broker.count) 1 }}
-_minReplicas: {{ fail "nfs_broker must have at least 1 instances" }}
+{{- if lt (int .Values.sizing.locket.count) 1 }}
+_minReplicas: {{ fail "locket must have at least 1 instances" }}
 {{- end }}
 
 {{- if .Values.sizing.HA }}
@@ -43,18 +46,18 @@ _moved_sizing_memory_requests: {{ if .Values.sizing.memory.requests }} {{ fail "
 apiVersion: "apps/v1beta1"
 kind: "StatefulSet"
 metadata:
-  name: "nfs-broker"
+  name: "locket"
   labels:
-    skiff-role-name: "nfs-broker"
+    skiff-role-name: "locket"
 spec:
-  podManagementPolicy: "OrderedReady"
-  replicas: {{ if and .Values.config.HA (eq (int .Values.sizing.nfs_broker.count) 1) -}} 2 {{- else -}} {{ .Values.sizing.nfs_broker.count }} {{- end }}
-  serviceName: "nfs-broker-set"
+  podManagementPolicy: "Parallel"
+  replicas: {{ if and .Values.config.HA (eq (int .Values.sizing.locket.count) 1) -}} 2 {{- else -}} {{ .Values.sizing.locket.count }} {{- end }}
+  serviceName: "locket-set"
   template:
     metadata:
-      name: "nfs-broker"
+      name: "locket"
       labels:
-        skiff-role-name: "nfs-broker"
+        skiff-role-name: "locket"
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
     spec:
@@ -67,18 +70,48 @@ spec:
                 - key: "skiff-role-name"
                   operator: "In"
                   values:
-                  - "nfs-broker"
+                  - "locket"
               topologyKey: "beta.kubernetes.io/os"
             weight: 100
-        {{- if .Values.sizing.nfs_broker.affinity.nodeAffinity }}
-        nodeAffinity: {{ toJson .Values.sizing.nfs_broker.affinity.nodeAffinity }}
+        {{- if .Values.sizing.locket.affinity.nodeAffinity }}
+        nodeAffinity: {{ toJson .Values.sizing.locket.affinity.nodeAffinity }}
         {{- end }}
       containers:
       - env:
         - name: "CATS_SUITES"
           value: {{if ne (typeOf .Values.env.CATS_SUITES) "<nil>"}}{{if has (kindOf .Values.env.CATS_SUITES) (list "map" "slice")}}{{.Values.env.CATS_SUITES | toJson | quote}}{{else}}{{.Values.env.CATS_SUITES | quote}}{{end}}{{else}}""{{end}}
-        - name: "GARDEN_ROOTFS_DRIVER"
-          value: {{if ne (typeOf .Values.env.GARDEN_ROOTFS_DRIVER) "<nil>"}}{{if has (kindOf .Values.env.GARDEN_ROOTFS_DRIVER) (list "map" "slice")}}{{.Values.env.GARDEN_ROOTFS_DRIVER | toJson | quote}}{{else}}{{.Values.env.GARDEN_ROOTFS_DRIVER | quote}}{{end}}{{else}}{{fail "env.GARDEN_ROOTFS_DRIVER has not been set"}}{{end}}
+
+        {{- if not .Values.secrets.DIEGO_CLIENT_CERT }}
+        - name: "DIEGO_CLIENT_CERT"
+          valueFrom:
+            secretKeyRef:
+              key: "diego-client-cert"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        {{- if .Values.secrets.DIEGO_CLIENT_CERT }}
+        - name: "DIEGO_CLIENT_CERT"
+          valueFrom:
+            secretKeyRef:
+              key: "diego-client-cert"
+              name: "secrets"
+        {{- end }}
+
+        {{- if not .Values.secrets.DIEGO_CLIENT_CERT_KEY }}
+        - name: "DIEGO_CLIENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "diego-client-cert-key"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        {{- if .Values.secrets.DIEGO_CLIENT_CERT_KEY }}
+        - name: "DIEGO_CLIENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "diego-client-cert-key"
+              name: "secrets"
+        {{- end }}
 
         {{- if not .Values.secrets.INTERNAL_CA_CERT }}
         - name: "INTERNAL_CA_CERT"
@@ -105,35 +138,78 @@ spec:
         - name: "KUBE_AZ"
           value: "z1"
 
-        {{- if not .Values.secrets.METRON_CERT }}
-        - name: "METRON_CERT"
+        {{- if not .Values.secrets.LOGGREGATOR_AGENT_CERT }}
+        - name: "LOGGREGATOR_AGENT_CERT"
           valueFrom:
             secretKeyRef:
-              key: "metron-cert"
+              key: "loggregator-agent-cert"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
-        {{- if .Values.secrets.METRON_CERT }}
-        - name: "METRON_CERT"
+        {{- if .Values.secrets.LOGGREGATOR_AGENT_CERT }}
+        - name: "LOGGREGATOR_AGENT_CERT"
           valueFrom:
             secretKeyRef:
-              key: "metron-cert"
+              key: "loggregator-agent-cert"
               name: "secrets"
         {{- end }}
 
-        {{- if not .Values.secrets.METRON_KEY }}
-        - name: "METRON_KEY"
+        {{- if not .Values.secrets.LOGGREGATOR_AGENT_CERT_KEY }}
+        - name: "LOGGREGATOR_AGENT_CERT_KEY"
           valueFrom:
             secretKeyRef:
-              key: "metron-key"
+              key: "loggregator-agent-cert-key"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
-        {{- if .Values.secrets.METRON_KEY }}
-        - name: "METRON_KEY"
+        {{- if .Values.secrets.LOGGREGATOR_AGENT_CERT_KEY }}
+        - name: "LOGGREGATOR_AGENT_CERT_KEY"
           valueFrom:
             secretKeyRef:
-              key: "metron-key"
+              key: "loggregator-agent-cert-key"
+              name: "secrets"
+        {{- end }}
+
+        {{- if .Values.secrets.LOGGREGATOR_CLIENT_CERT }}
+        - name: "LOGGREGATOR_CLIENT_CERT"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-client-cert"
+              name: "secrets"
+        {{- end }}
+
+        {{- if not .Values.secrets.LOGGREGATOR_CLIENT_CERT }}
+        - name: "LOGGREGATOR_CLIENT_CERT"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-client-cert"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        {{- if .Values.secrets.LOGGREGATOR_CLIENT_CERT_KEY }}
+        - name: "LOGGREGATOR_CLIENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-client-cert-key"
+              name: "secrets"
+        {{- end }}
+
+        {{- if not .Values.secrets.LOGGREGATOR_CLIENT_CERT_KEY }}
+        - name: "LOGGREGATOR_CLIENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-client-cert-key"
+              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        - name: "LOG_LEVEL"
+          value: {{if ne (typeOf .Values.env.LOG_LEVEL) "<nil>"}}{{if has (kindOf .Values.env.LOG_LEVEL) (list "map" "slice")}}{{.Values.env.LOG_LEVEL | toJson | quote}}{{else}}{{.Values.env.LOG_LEVEL | quote}}{{end}}{{else}}{{fail "env.LOG_LEVEL has not been set"}}{{end}}
+
+        {{- if .Values.secrets.MONIT_PASSWORD }}
+        - name: "MONIT_PASSWORD"
+          valueFrom:
+            secretKeyRef:
+              key: "monit-password"
               name: "secrets"
         {{- end }}
 
@@ -145,51 +221,22 @@ spec:
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
-        {{- if .Values.secrets.MONIT_PASSWORD }}
-        - name: "MONIT_PASSWORD"
+        {{- if .Values.secrets.MYSQL_DIEGO_LOCKET_PASSWORD }}
+        - name: "MYSQL_DIEGO_LOCKET_PASSWORD"
           valueFrom:
             secretKeyRef:
-              key: "monit-password"
+              key: "mysql-diego-locket-password"
               name: "secrets"
         {{- end }}
 
-        {{- if .Values.secrets.MYSQL_PERSI_NFS_PASSWORD }}
-        - name: "MYSQL_PERSI_NFS_PASSWORD"
+        {{- if not .Values.secrets.MYSQL_DIEGO_LOCKET_PASSWORD }}
+        - name: "MYSQL_DIEGO_LOCKET_PASSWORD"
           valueFrom:
             secretKeyRef:
-              key: "mysql-persi-nfs-password"
-              name: "secrets"
-        {{- end }}
-
-        {{- if not .Values.secrets.MYSQL_PERSI_NFS_PASSWORD }}
-        - name: "MYSQL_PERSI_NFS_PASSWORD"
-          valueFrom:
-            secretKeyRef:
-              key: "mysql-persi-nfs-password"
+              key: "mysql-diego-locket-password"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
-        - name: "PERSI_NFS_ALLOWED_OPTIONS"
-          value: {{if ne (typeOf .Values.env.PERSI_NFS_ALLOWED_OPTIONS) "<nil>"}}{{if has (kindOf .Values.env.PERSI_NFS_ALLOWED_OPTIONS) (list "map" "slice")}}{{.Values.env.PERSI_NFS_ALLOWED_OPTIONS | toJson | quote}}{{else}}{{.Values.env.PERSI_NFS_ALLOWED_OPTIONS | quote}}{{end}}{{else}}""{{end}}
-
-        {{- if not .Values.secrets.PERSI_NFS_BROKER_PASSWORD }}
-        - name: "PERSI_NFS_BROKER_PASSWORD"
-          valueFrom:
-            secretKeyRef:
-              key: "persi-nfs-broker-password"
-              name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
-        {{- end }}
-
-        {{- if .Values.secrets.PERSI_NFS_BROKER_PASSWORD }}
-        - name: "PERSI_NFS_BROKER_PASSWORD"
-          valueFrom:
-            secretKeyRef:
-              key: "persi-nfs-broker-password"
-              name: "secrets"
-        {{- end }}
-
-        - name: "PERSI_NFS_DEFAULT_OPTIONS"
-          value: {{if ne (typeOf .Values.env.PERSI_NFS_DEFAULT_OPTIONS) "<nil>"}}{{if has (kindOf .Values.env.PERSI_NFS_DEFAULT_OPTIONS) (list "map" "slice")}}{{.Values.env.PERSI_NFS_DEFAULT_OPTIONS | toJson | quote}}{{else}}{{.Values.env.PERSI_NFS_DEFAULT_OPTIONS | quote}}{{end}}{{else}}""{{end}}
         - name: "SCF_LOG_HOST"
           value: {{if ne (typeOf .Values.env.SCF_LOG_HOST) "<nil>"}}{{if has (kindOf .Values.env.SCF_LOG_HOST) (list "map" "slice")}}{{.Values.env.SCF_LOG_HOST | toJson | quote}}{{else}}{{.Values.env.SCF_LOG_HOST | quote}}{{end}}{{else}}""{{end}}
         - name: "SCF_LOG_PORT"
@@ -201,17 +248,17 @@ spec:
             secretKeyRef:
               key: "uaa-ca-cert"
               name: "secrets"
-        image: "{{ .Values.kube.registry.hostname }}/{{ .Values.kube.organization }}/scf-nfs-broker:706fd72165d8d860f58e61fe9d5531cff25a2b28"
+        image: "{{ .Values.kube.registry.hostname }}/{{ .Values.kube.organization }}/scf-locket:e6c1666534c0a7a2649aca14dfd87dbffde29f1e"
         lifecycle:
           preStop:
             exec:
               command:
               - "/opt/fissile/pre-stop.sh"
         livenessProbe: ~
-        name: "nfs-broker"
+        name: "locket"
         ports:
-        - containerPort: 8999
-          name: "nfsbroker"
+        - containerPort: 8891
+          name: "locket"
           protocol: "TCP"
         readinessProbe:
           exec:
@@ -219,25 +266,36 @@ spec:
             - "/opt/fissile/readiness-probe.sh"
         resources:
           requests:
-            {{- if and .Values.config.memory.requests .Values.sizing.nfs_broker.memory.request }}
-            memory: "{{ int .Values.sizing.nfs_broker.memory.request }}Mi"
+            {{- if and .Values.config.memory.requests .Values.sizing.locket.memory.request }}
+            memory: "{{ int .Values.sizing.locket.memory.request }}Mi"
             {{- end }}
 
-            {{- if and .Values.config.cpu.requests .Values.sizing.nfs_broker.cpu.request }}
-            cpu: "{{ int .Values.sizing.nfs_broker.cpu.request }}m"
+            {{- if and .Values.config.cpu.requests .Values.sizing.locket.cpu.request }}
+            cpu: "{{ int .Values.sizing.locket.cpu.request }}m"
             {{- end }}
 
           limits:
-            {{- if and .Values.config.memory.limits .Values.sizing.nfs_broker.memory.limit }}
-            memory: "{{ int .Values.sizing.nfs_broker.memory.limit }}Mi"
+            {{- if and .Values.config.memory.limits .Values.sizing.locket.memory.limit }}
+            memory: "{{ int .Values.sizing.locket.memory.limit }}Mi"
             {{- end }}
 
-            {{- if and .Values.config.cpu.limits .Values.sizing.nfs_broker.cpu.limit }}
-            cpu: "{{ int .Values.sizing.nfs_broker.cpu.limit }}m"
+            {{- if and .Values.config.cpu.limits .Values.sizing.locket.cpu.limit }}
+            cpu: "{{ int .Values.sizing.locket.cpu.limit }}m"
             {{- end }}
 
         securityContext:
+          {{- if has "ALL" .Values.sizing.locket.capabilities }}
           privileged: true
+          {{- end }}
+
+          {{- if not (has "ALL" .Values.sizing.locket.capabilities) }}
+          capabilities:
+            add:
+            {{- range .Values.sizing.locket.capabilities }}
+            - {{ . | upper }}
+            {{- end }}
+          {{- end }}
+
         volumeMounts: ~
       dnsPolicy: "ClusterFirst"
       imagePullSecrets:
@@ -255,26 +313,39 @@ items:
 - apiVersion: "v1"
   kind: "Service"
   metadata:
-    name: "nfs-broker-set"
+    name: "locket-set"
   spec:
     clusterIP: "None"
     ports:
-    - name: "nfsbroker"
-      port: 8999
+    - name: "locket"
+      port: 8891
       protocol: "TCP"
       targetPort: 0
     selector:
-      skiff-role-name: "nfs-broker"
+      skiff-role-name: "locket"
 - apiVersion: "v1"
   kind: "Service"
   metadata:
-    name: "nfs-broker"
+    name: "locket-locket-set"
+  spec:
+    clusterIP: "None"
+    ports:
+    - name: "locket"
+      port: 8891
+      protocol: "TCP"
+      targetPort: 0
+    selector:
+      skiff-role-name: "locket"
+- apiVersion: "v1"
+  kind: "Service"
+  metadata:
+    name: "locket-locket"
   spec:
     ports:
-    - name: "nfsbroker"
-      port: 8999
+    - name: "locket"
+      port: 8891
       protocol: "TCP"
-      targetPort: "nfsbroker"
+      targetPort: 8891
     selector:
-      skiff-role-name: "nfs-broker"
+      skiff-role-name: "locket"
 kind: "List"

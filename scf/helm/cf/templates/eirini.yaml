@@ -36,7 +36,7 @@ spec:
             secretName: private-registry-cert
       initContainers:
       - name: configure-opi-yaml
-        image: eirini/opi-init
+        image: eirini/opi-init:new-scf
         volumeMounts:
         - name: config-map-volume
           mountPath: /configs
@@ -45,7 +45,7 @@ spec:
           readOnly: false
       containers:
       - name: opi
-        image: eirini/opi
+        image: eirini/opi:new-scf
         imagePullPolicy: Always
         volumeMounts:
         - name: config-volume
@@ -75,13 +75,13 @@ data:
       kube_namespace: {{ .Values.opi.namespace }}
       kube_endpoint: {{ .Values.opi.ingress_endpoint }}
       nats_password: {{ .Values.secrets.NATS_PASSWORD }}
-      nats_ip: "nats.scf.svc.cluster.local"
-      api_endpoint: "http://api.{{ .Release.Namespace }}.svc.cluster.local:9022"
+      nats_ip: "nats-nats.scf.svc.cluster.local"
+      api_endpoint: "http://api-cloud-controller-ng.{{ .Release.Namespace }}.svc.cluster.local:9022"
       cf_username: "admin"
       cc_certs_secret_name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
       cf_password: {{ .Values.secrets.CLUSTER_ADMIN_PASSWORD }}
       external_eirini_address: {{ if .Values.opi.use_ingress }}"we-love-pandas.{{ .Values.opi.ingress_endpoint }}:443"{{ else }}"{{ index .Values.kube.external_ips 0 }}:5800"{{ end }}
-      eirini_address: "http://eirini.{{ .Release.Namespace }}.svc.cluster.local:8085"
+      eirini_address: "http://eirini-opi.{{ .Release.Namespace }}.svc.cluster.local:8085"
       skip_ssl_validation: true
       insecure_skip_verify: true
 
@@ -90,7 +90,7 @@ data:
 apiVersion: v1
 kind: Service
 metadata:
-  name: "eirini"
+  name: "eirini-opi"
 spec:
 {{- if not .Values.opi.use_ingress }}
   externalIPs: {{ .Values.kube.external_ips | toJson }}
@@ -128,7 +128,7 @@ spec:
         paths:
           - path: /
             backend:
-              serviceName: eirini
+              serviceName: eirini-opi
               servicePort: 8080
 {{- end }}
 

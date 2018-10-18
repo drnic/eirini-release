@@ -7,7 +7,7 @@
 # - nats: The NATS server provides publish-subscribe messaging system for the
 #   Cloud Controller, the DEA , HM9000, and other Cloud Foundry components.
 #
-# Also: metron_agent
+# Also: loggregator_agent
 
 {{- if gt (int .Values.sizing.nats.count) 3 }}
 _maxReplicas: {{ fail "nats cannot have more than 3 instances" }}
@@ -78,8 +78,6 @@ spec:
       - env:
         - name: "CATS_SUITES"
           value: {{if ne (typeOf .Values.env.CATS_SUITES) "<nil>"}}{{if has (kindOf .Values.env.CATS_SUITES) (list "map" "slice")}}{{.Values.env.CATS_SUITES | toJson | quote}}{{else}}{{.Values.env.CATS_SUITES | quote}}{{end}}{{else}}""{{end}}
-        - name: "GARDEN_ROOTFS_DRIVER"
-          value: {{if ne (typeOf .Values.env.GARDEN_ROOTFS_DRIVER) "<nil>"}}{{if has (kindOf .Values.env.GARDEN_ROOTFS_DRIVER) (list "map" "slice")}}{{.Values.env.GARDEN_ROOTFS_DRIVER | toJson | quote}}{{else}}{{.Values.env.GARDEN_ROOTFS_DRIVER | quote}}{{end}}{{else}}{{fail "env.GARDEN_ROOTFS_DRIVER has not been set"}}{{end}}
 
         {{- if not .Values.secrets.INTERNAL_CA_CERT }}
         - name: "INTERNAL_CA_CERT"
@@ -108,36 +106,36 @@ spec:
         - name: "KUBE_SIZING_NATS_COUNT"
           value: {{ .Values.sizing.nats.count | quote }}
 
-        {{- if not .Values.secrets.METRON_CERT }}
-        - name: "METRON_CERT"
+        {{- if not .Values.secrets.LOGGREGATOR_AGENT_CERT }}
+        - name: "LOGGREGATOR_AGENT_CERT"
           valueFrom:
             secretKeyRef:
-              key: "metron-cert"
+              key: "loggregator-agent-cert"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
         {{- end }}
 
-        {{- if .Values.secrets.METRON_CERT }}
-        - name: "METRON_CERT"
+        {{- if .Values.secrets.LOGGREGATOR_AGENT_CERT }}
+        - name: "LOGGREGATOR_AGENT_CERT"
           valueFrom:
             secretKeyRef:
-              key: "metron-cert"
+              key: "loggregator-agent-cert"
               name: "secrets"
         {{- end }}
 
-        {{- if .Values.secrets.METRON_KEY }}
-        - name: "METRON_KEY"
+        {{- if not .Values.secrets.LOGGREGATOR_AGENT_CERT_KEY }}
+        - name: "LOGGREGATOR_AGENT_CERT_KEY"
           valueFrom:
             secretKeyRef:
-              key: "metron-key"
-              name: "secrets"
-        {{- end }}
-
-        {{- if not .Values.secrets.METRON_KEY }}
-        - name: "METRON_KEY"
-          valueFrom:
-            secretKeyRef:
-              key: "metron-key"
+              key: "loggregator-agent-cert-key"
               name: "secrets-{{ .Chart.Version }}-{{ .Values.kube.secrets_generation_counter }}"
+        {{- end }}
+
+        {{- if .Values.secrets.LOGGREGATOR_AGENT_CERT_KEY }}
+        - name: "LOGGREGATOR_AGENT_CERT_KEY"
+          valueFrom:
+            secretKeyRef:
+              key: "loggregator-agent-cert-key"
+              name: "secrets"
         {{- end }}
 
         {{- if not .Values.secrets.MONIT_PASSWORD }}
@@ -178,7 +176,7 @@ spec:
           value: {{if ne (typeOf .Values.env.SCF_LOG_PORT) "<nil>"}}{{if has (kindOf .Values.env.SCF_LOG_PORT) (list "map" "slice")}}{{.Values.env.SCF_LOG_PORT | toJson | quote}}{{else}}{{.Values.env.SCF_LOG_PORT | quote}}{{end}}{{else}}""{{end}}
         - name: "SCF_LOG_PROTOCOL"
           value: {{if ne (typeOf .Values.env.SCF_LOG_PROTOCOL) "<nil>"}}{{if has (kindOf .Values.env.SCF_LOG_PROTOCOL) (list "map" "slice")}}{{.Values.env.SCF_LOG_PROTOCOL | toJson | quote}}{{else}}{{.Values.env.SCF_LOG_PROTOCOL | quote}}{{end}}{{else}}{{fail "env.SCF_LOG_PROTOCOL has not been set"}}{{end}}
-        image: "{{ .Values.kube.registry.hostname }}/{{ .Values.kube.organization }}/scf-nats:737b537b0f1a859ddada93d2db04798c265666c6"
+        image: "{{ .Values.kube.registry.hostname }}/{{ .Values.kube.organization }}/scf-nats:f7cdb37951c43bb845ee8652bccd7eb8665494f7"
         lifecycle:
           preStop:
             exec:
@@ -217,7 +215,18 @@ spec:
             {{- end }}
 
         securityContext:
+          {{- if has "ALL" .Values.sizing.nats.capabilities }}
           privileged: true
+          {{- end }}
+
+          {{- if not (has "ALL" .Values.sizing.nats.capabilities) }}
+          capabilities:
+            add:
+            {{- range .Values.sizing.nats.capabilities }}
+            - {{ . | upper }}
+            {{- end }}
+          {{- end }}
+
         volumeMounts: ~
       dnsPolicy: "ClusterFirst"
       imagePullSecrets:
@@ -252,17 +261,34 @@ items:
 - apiVersion: "v1"
   kind: "Service"
   metadata:
-    name: "nats"
+    name: "nats-nats-set"
+  spec:
+    clusterIP: "None"
+    ports:
+    - name: "nats"
+      port: 4222
+      protocol: "TCP"
+      targetPort: 0
+    - name: "nats-routes"
+      port: 4223
+      protocol: "TCP"
+      targetPort: 0
+    selector:
+      skiff-role-name: "nats"
+- apiVersion: "v1"
+  kind: "Service"
+  metadata:
+    name: "nats-nats"
   spec:
     ports:
     - name: "nats"
       port: 4222
       protocol: "TCP"
-      targetPort: "nats"
+      targetPort: 4222
     - name: "nats-routes"
       port: 4223
       protocol: "TCP"
-      targetPort: "nats-routes"
+      targetPort: 4223
     selector:
       skiff-role-name: "nats"
 kind: "List"
