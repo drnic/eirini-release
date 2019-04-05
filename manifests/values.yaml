@@ -1,0 +1,52 @@
+env:
+  DOMAIN: &DOMAIN <worker-node-ip>.nip.io
+  ENABLE_OPI_STAGING: false
+  UAA_HOST: uaa.<worker-node-ip>.nip.io
+  UAA_PORT: 2793
+
+kube:
+  auth: rbac
+  external_ips: &external_ips ((worker-node-ips))
+  storage_class:
+    persistent: ((storage-class))
+    shared: ((storage-class))
+
+secrets: &secrets
+  CLUSTER_ADMIN_PASSWORD: ((cluster-admin-password))
+  UAA_ADMIN_CLIENT_SECRET: ((uaa-admin-client-secret))
+  BLOBSTORE_PASSWORD: ((blobstore-password))
+
+services: &services
+  loadbalanced: false
+
+eirini:
+  env:
+    DOMAIN: *DOMAIN
+  services: *services
+  opi:
+    use_registry_ingress: false
+    #Enable if use_registry_ingress is set to 'true'
+    #ingress_endpoint: kubernetes-cluster-ingress-endpoint
+    #Enable if your cluster is using docker,
+    #by default eirini will assume containerd
+    use_docker: false
+
+  secrets:
+    BLOBSTORE_PASSWORD: ((blobstore-password))
+    BITS_SERVICE_SECRET: ((bits-service-secret))
+    BITS_SERVICE_SIGNING_USER_PASSWORD: ((bits-service-signing-user-password))
+
+  kube:
+    external_ips: *external_ips
+
+variables:
+- name: bits-service-secret
+  type: password
+- name: bits-service-signing-user-password
+  type: password
+- name: blobstore-password
+  type: password
+- name: cluster-admin-password
+  type: password
+- name: uaa-admin-client-secret
+  type: password
