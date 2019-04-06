@@ -3,7 +3,7 @@
 # node_ips=$(kubectl get nodes -o json | jq -r ".items[].status.addresses | .[] | select(.type == \"ExternalIP\") | .address")
 # node_ips=$(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="ExternalIP")].address}')
 
-domain=${node_ip:?required}.sslip.io
+domain=${node_ip:?required}.nip.io
 
 cat <<-EOS
 - type: replace
